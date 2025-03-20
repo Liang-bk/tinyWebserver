@@ -3,11 +3,11 @@
 #include "buffer/buffer.h"
 #include <unistd.h>
 #include <fcntl.h>
+
+#include "logger/logger.h"
 // TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-int main() {
-    // TIP Press <shortcut actionId="RenameElement"/> when your caret is at the
-    // <b>lang</b> variable name to see how CLion can help you rename it.
+void bufferTest() {
     Buffer buffer;
     std::string s1 = "hello world!";
     std::string s2 = " another string";
@@ -31,7 +31,17 @@ int main() {
     buffer.readFd(fd, &errno);
     assert(buffer.readableBytes() == 1118);
 
+}
+int main() {
+    // TIP Press <shortcut actionId="RenameElement"/> when your caret is at the
+    // <b>lang</b> variable name to see how CLion can help you rename it.
+    Logger* logger = Logger::getInstance();
+    logger->initLogger(3);
 
+    LOG_DEBUG("1");
+    LOG_INFO("2");
+    LOG_WARN("3");
+    LOG_ERROR("4");
     return 0;
 }
 
