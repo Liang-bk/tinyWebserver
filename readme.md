@@ -125,6 +125,114 @@ producer_cond_.notify_one();
 return true;
 ```
 
+日志行数没有写满：问题出在异步这里，前面的writeLog只往队列里塞消息，如果往队列里塞的消息到了MAX条就会新创建一个文件改变文件指针，但是写线程没有反应过来，于是会往新文件里写入原本应该在老文件里的消息
+
+同样的，由于把旧文件的内容写入了新文件，可能导致新文件行数超过规定的最大行数
+
+solution1：将关闭文件的权限交给异步写线程，在队列里附上文件指针指明这是哪一个文件的内容， 当队列中上一个和下一个文件指针不相同时，说明更改了文件，此时关闭上一个文件。
+
+同时为了防止日期导致文件名更改产生的消息归属bug，将两个临界区合为一个，可能会降低效率，但线程安全
+## 连接池(Pool)
+
+### SQL配置
+
+1. 安装mysql：
+
+   `sudo apt install mysql-server mysql-client libmysqlclient-dev `
+
+2. CMakeLists导入：
+
+   ```cmake
+   # 导入mysql头文件所在路径
+   include_directories(/usr/include/mysql)
+   # 链接mysql库(放在add_executable后面, 不然会丢失目标报错)
+   target_link_libraries(${PROJECT_NAME} mysqlclient)
+   ```
+
+3. 文件中导入
+
+   ```c++
+   #include<mysql/mysql.h>
+   ```
+
+同日志系统一样，SQL连接池也采用单例模式，简单易实现，固定连接池中SQL连接的个数，当需要时从中取出，使用完毕后释放，这样在程序初始化后，集中创建并管理多个数据库连接，来保证较快的数据库读取速度（理论上将可以将信号量也使用条件变量代替，之后可以试试，信号量更符合一般教材中的PV操作，易于理解）：
+
+```c++
+class SQLConnPool {
+public:
+    // 单例模式, 全局保留一个实例
+    static SQLConnPool* getInstance();
+    // 从池中取出一个SQL连接
+    MYSQL *getConn();
+    // 使用完毕后将该SQL连接放回池
+    void freeConn(MYSQL *sql);
+    // 池中可用的SQL连接
+    int getFreeConnCount();
+
+    /// 初始化连接池
+    /// @param host  地址
+    /// @param port  端口
+    /// @param user  用户名
+    /// @param pwd   密码
+    /// @param db_name 数据库名称
+    /// @param conn_size 连接数量
+    void initConnPool(const char *host, int port,
+                      const char *user, const char *pwd,
+                      const char *db_name, int conn_size);
+    // 关闭连接池
+    void closeConnPool();
+private:
+    // 构造函数私有实现
+    SQLConnPool();
+    ~SQLConnPool();
+
+    // 最大连接数
+    int MAX_CONN_;
+    // 池队列
+    std::queue<MYSQL *> conn_que_;
+    std::mutex mutex_;
+    // 信号量
+    sem_t sem_id_;
+};
+```
+
+#### RAll
+
+**RAll**代表资源获取就是初始化的意义，是c++管理资源、避免泄露的一种惯用方法。
+
+`unique_ptr`，`lock_guard`都是使用RAll机制来实现。
+
+这里将RAll机制应用到SQL连接池上，避免主动申请SQL连接而忘记释放的问题，更加稳定：
+
+程序中使用`MYSQL *`来表示一个数据库连接的指针，是指针指向该连接，在函数中想要修改一级指针的指向，需要传递二级指针，因为二级指针在解引用时会修改自己指向的地址的内容（也就是能让MYSQL *指针指向正确的SQL连接），否则如果传递一级指针，函数返回后仍然函数内修改了一级指针的指向不会让外部的指针指向改变（c++可以用引用解决这个问题，后面可以修改）
+
+```c++
+class SQLConnRAll {
+public:
+    /// 获取一个SQL连接
+    /// @param sql 二级指针是为了改变一级指针指向的位置
+    /// @param conn_pool 资源获取地(从池中获取数据)
+    SQLConnRAll(MYSQL **sql, SQLConnPool *conn_pool) {
+        assert(conn_pool);
+        *sql = conn_pool->getConn();
+        sql_ = *sql;
+        conn_pool_ = conn_pool;
+    }
+    ~SQLConnRAll() {
+        if (sql_) {
+            conn_pool_->freeConn(sql_);
+        }
+    }
+private:
+    MYSQL *sql_;
+    SQLConnPool *conn_pool_;
+};
+```
+
+### 线程池
+
+同SQL连接池一样，由于线程的创建和销毁都需要消耗不小的系统资源，所以在一开始就创建好一定个数的线程，等到有任务来临时再移交给其中一个线程进行处理，也是一种经典的空间换时间的方法。
+
 
 
 

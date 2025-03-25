@@ -6,6 +6,7 @@
 #define LOGGER_H
 
 #include <memory>
+#include <queue>
 #include <thread>
 
 #include "blockqueue.h"
@@ -13,13 +14,13 @@
 
 class Logger {
 public:
-    // 初始化Logger设置
-    // level: 日志等级
-    // path: 日志存储路径
-    // suffix: 日志文件后缀
-    // max_queue_capacity: 阻塞队列能存放的最大消息数量
+    /// 初始化Logger设置
+    /// @param level 日志等级
+    /// @param path 日志存储路径
+    /// @param suffix 日志文件后缀
+    /// @param max_queue_capcity 阻塞队列能存放的最大消息数量
     void initLogger(int level, const char* path = "./log",
-        const char* suffix = ".log", int max_queue_capcity = 1024);
+                    const char* suffix = ".log", int max_queue_capcity = 1024);
     static Logger* getInstance();
     // 异步写日志
     static void flushLogThread();
@@ -54,7 +55,7 @@ private:
 
     Buffer buffer_;
     FILE* file_;        // 写入文件的指针
-    std::unique_ptr<BlockQueue<std::string>> block_queue_;
+    std::unique_ptr<BlockQueue<std::pair<FILE*, std::string>>> block_queue_;
     std::unique_ptr<std::thread> write_thread_;
     std::mutex mutex_;
 };

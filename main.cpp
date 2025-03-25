@@ -1,10 +1,10 @@
 #include <iostream>
 
-#include "buffer/buffer.h"
+#include "src/buffer/buffer.h"
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "logger/logger.h"
+#include "src/logger/logger.h"
 // TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 void bufferTest() {

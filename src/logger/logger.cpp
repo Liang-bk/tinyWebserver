@@ -36,10 +36,26 @@ Logger::~Logger() {
 }
 // 实际的写线程在做的事情, 不断的从阻塞队列中取数据并放到文件里
 void Logger::asyncWriteLog() {
-    std::string msg;
+    // std::string msg;
+    std::pair<FILE*, std::string> msg;
+    FILE *last_file = nullptr;
     while (block_queue_->pop(msg)) {
         std::lock_guard<std::mutex> lock(mutex_);
-        fputs(msg.c_str(), file_);
+        FILE *msg_file = msg.first;
+        std::string str = msg.second;
+        fputs(str.c_str(), msg_file);
+        // 什么时候关闭这个文件?
+        if (last_file == nullptr) {
+            last_file = msg_file;
+        } else if (last_file != msg_file) {
+            fclose(last_file);
+            last_file = msg_file;
+        }
+    }
+    // TODO: bug, 后端线程不一定能运行到关闭最后一个文件的地方
+    if (last_file) {
+        fclose(last_file);
+        last_file = nullptr;
     }
 }
 // 添加日志等级
@@ -74,10 +90,10 @@ void Logger::initLogger(int level, const char *path, const char *suffix, int max
         is_async_ = true;
         if (block_queue_ == nullptr) {
             // c++ 17 使用make_unique
-            block_queue_ = std::make_unique<BlockQueue<std::string>>(max_queue_capcity);
+            block_queue_ = std::make_unique<BlockQueue<std::pair<FILE*, std::string>>>(max_queue_capcity);
             write_thread_ = std::make_unique<std::thread>(Logger::flushLogThread);
         }
-
+        //
     } else {
         is_async_ = false;
     }
@@ -97,7 +113,8 @@ void Logger::initLogger(int level, const char *path, const char *suffix, int max
         // 如果文件已经打开了, 写入最后一条, 关闭
         if (file_) {
             flush();
-            fclose(file_);
+            // fclose(file_);
+            file_ = nullptr;
         }
         // 重新打开文件, 没有就创建(append 追加模式)
         file_ = fopen(filename, "a");
@@ -129,7 +146,7 @@ void Logger::writeLog(int level, const char *format, ...) {
         std::unique_lock<std::mutex> lock(mutex_);
         if (today_ != tm.tm_mday || (line_cnt_ > 0 && line_cnt_ % MAX_LINES == 0)) {
             // std::unique_lock<std::mutex> lock(mutex_);
-
+            // lock.unlock();
             char new_filename[LOG_NAME_LEN];
             char tail[36] = {0};
             snprintf(tail, 35, "%04d_%02d_%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
@@ -141,15 +158,16 @@ void Logger::writeLog(int level, const char *format, ...) {
             } else {
                 snprintf(new_filename, LOG_NAME_LEN - 72, "%s%s-%d%s", path_, tail, (line_cnt_ / MAX_LINES), suffix_);
             }
-            // lock.lock();
+
             flush();
-            fclose(file_);
+            // 不再由前端线程close文件, 移交后端线程close文件
+            // fclose(file_);
             file_ = fopen(new_filename, "a");
             assert(file_ != nullptr);
         }
-    }
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
+    // }
+    // {
+    //    std::unique_lock<std::mutex> lock(mutex_);
         line_cnt_ += 1;
         // int n = snprintf(buffer_.beginWrite(), 128, "")
         char info[256] = {};
@@ -170,7 +188,7 @@ void Logger::writeLog(int level, const char *format, ...) {
         buffer_.append("\n\0", 2);
 
         if (is_async_ && block_queue_!= nullptr && !block_queue_->full()) {
-            block_queue_->push_back(buffer_.retrieveAllAsString());
+            block_queue_->push_back({file_, buffer_.retrieveAllAsString()});
         } else {
             fputs(buffer_.peek(), file_);
         }
