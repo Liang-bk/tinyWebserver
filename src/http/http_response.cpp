@@ -12,30 +12,30 @@
  * 响应体: <html>...</html>
  */
 // 文件后缀对应的TYPE类型, 用在响应头Content-Type中
-const std::unordered_map<std::string, std::string> HttpResponse::SUFFIX_TYPE {
+const std::unordered_map<std::string, std::string> HttpResponse::SUFFIX_TYPE{
     {".html", "text/html"},
-    {".xml","text/xml"},
-    {".xhtml","application/xhtml+xml"},
-    {".txt","text/plain"},
-    {".rtf","application/rtf"},
-    {".pdf","application/pdf"},
-    {".word","application/nsword"},
-    {".png","image/png"},
-    {".gif","image/gif"},
-    {".jpg","image/jpeg"},
-    {".jpeg","image/jpeg"},
-    {".au","audio/basic"},
-    {".mpeg","video/mpeg"},
-    {".mpg","video/mpeg"},
-    {".avi","video/x-msvideo"},
-    {".gz","application/x-gzip"},
-    {".tar","application/x-tar"},
-    {".css","text/css "},
-    {".js","text/javascript "},
+    {".xml", "text/xml"},
+    {".xhtml", "application/xhtml+xml"},
+    {".txt", "text/plain"},
+    {".rtf", "application/rtf"},
+    {".pdf", "application/pdf"},
+    {".word", "application/nsword"},
+    {".png", "image/png"},
+    {".gif", "image/gif"},
+    {".jpg", "image/jpeg"},
+    {".jpeg", "image/jpeg"},
+    {".au", "audio/basic"},
+    {".mpeg", "video/mpeg"},
+    {".mpg", "video/mpeg"},
+    {".avi", "video/x-msvideo"},
+    {".gz", "application/x-gzip"},
+    {".tar", "application/x-tar"},
+    {".css", "text/css "},
+    {".js", "text/javascript "},
 };
 
 // 响应状态码对应的描述
-const std::unordered_map<int, std::string> HttpResponse::CODE_STATUS {
+const std::unordered_map<int, std::string> HttpResponse::CODE_STATUS{
     {200, "OK"},
     {400, "Bad Request"},
     {403, "Forbidden"},
@@ -43,7 +43,7 @@ const std::unordered_map<int, std::string> HttpResponse::CODE_STATUS {
 };
 
 // 错误响应码对应的资源路径
-const std::unordered_map<int, std::string> HttpResponse::CODE_PATH {
+const std::unordered_map<int, std::string> HttpResponse::CODE_PATH{
     {400, "/400.html"},
     {403, "/403.html"},
     {404, "/404.html"},
@@ -108,6 +108,7 @@ void HttpResponse::errorHtml() {
         stat((src_dir_ + path_).data(), &mm_file_stat_);
     }
 }
+
 // 响应行
 void HttpResponse::addStateLine(Buffer &buffer) {
     std::string status;
@@ -119,6 +120,7 @@ void HttpResponse::addStateLine(Buffer &buffer) {
     }
     buffer.append("HTTP/1.1 " + std::to_string(status_code_) + " " + status + "\r\n");
 }
+
 // 添加响应头
 void HttpResponse::addHeader(Buffer &buffer) {
     buffer.append("Connection: ");
@@ -131,6 +133,7 @@ void HttpResponse::addHeader(Buffer &buffer) {
     buffer.append("Content-Type: " + getFileType() + "\r\n");
     // buffer.append("Content-Length: " + std::to_string(getFileSize()) + "\r\n\r\n");
 }
+
 // 添加响应内容
 void HttpResponse::addContent(Buffer &buffer) {
     int file_fd = open((src_dir_ + path_).data(), O_RDONLY);
@@ -143,12 +146,12 @@ void HttpResponse::addContent(Buffer &buffer) {
      *
      */
     LOG_DEBUG("file path: %s", (src_dir_ + path_).data());
-    int *mm_ret = (int *)mmap(0, mm_file_stat_.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
+    int *mm_ret = (int *) mmap(0, mm_file_stat_.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
     if (*mm_ret == -1) {
         errorContent(buffer, "File Not Found!");
         return;
     }
-    mm_file_ = (char*)mm_ret;
+    mm_file_ = (char *) mm_ret;
     close(file_fd);
     buffer.append("Content-Length: " + std::to_string(mm_file_stat_.st_size) + "\r\n\r\n");
 }
@@ -172,6 +175,7 @@ std::string HttpResponse::getFileType() {
     }
     return "text/plain";
 }
+
 // 获取内容失败时, 指向错误页面
 void HttpResponse::errorContent(Buffer &buffer, std::string msg) {
     std::string body;

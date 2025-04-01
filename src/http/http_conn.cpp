@@ -11,7 +11,7 @@ bool HttpConnection::isET = true;
 HttpConnection::HttpConnection() {
     sock_fd_ = -1;
     addr_ = {};
-    is_close_ = false;
+    is_close_ = true;
 }
 
 HttpConnection::~HttpConnection() {

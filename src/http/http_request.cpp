@@ -3,10 +3,9 @@
 //
 
 #include "http_request.h"
-#include "logger/logger.h"
-#include "pool/sqlconnRAll.h"
+
 const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
-    "/index", "register", "/login",
+    "/index", "/register", "/login",
     "/welcome", "/video", "/picture",
 };
 const std::unordered_map<std::string, int> HttpRequest::DEFAULT_HTML_TAG{
@@ -58,7 +57,7 @@ bool HttpRequest::parse(Buffer &buffer) {
                 //     return false;
                 // }
                 parseHeaders(line);
-                // 下面这个判断私以为没什么用
+            // 下面这个判断私以为没什么用
                 if (buffer.readableBytes() <= 2) {
                     state_ = FINISH;
                     break;
@@ -68,6 +67,7 @@ bool HttpRequest::parse(Buffer &buffer) {
                 // body不带CRLF, 不清楚会不会有bug, 暂时先这么写吧
                 if (line_end != buffer.beginWriteConst() && line.empty()) {
                     state_ = FINISH;
+                    break;
                 }
                 parseBody(line);
                 break;
@@ -93,7 +93,7 @@ void HttpRequest::parsePath() {
     } else {
         // 其他页面
         auto pathExist = [this]() -> bool {
-            for (auto page : DEFAULT_HTML) {
+            for (auto page: DEFAULT_HTML) {
                 if (path_ == page) {
                     return true;
                 }
@@ -128,7 +128,7 @@ bool HttpRequest::parseRequestLine(const std::string &line) {
 
 void HttpRequest::parseHeaders(const std::string &line) {
     // key: value
-    // ([^:]+) 匹配非:的字符一次或多次
+    // ([^:]+) 匹配非:的字符一个或多个
     // : ? 匹配:和0-1个' '
     // (.*) 匹配任意数量字符
     std::regex pattern("^([^:]+): ?(.*)$");
@@ -154,6 +154,7 @@ void HttpRequest::parsePost() {
         parseFromUrlEncoded();
         if (DEFAULT_HTML_TAG.count(path_)) {
             int tag = DEFAULT_HTML_TAG.find(path_)->second;
+            LOG_DEBUG("Tag:%d", tag);
             if (tag == 0 || tag == 1) {
                 bool is_login = (tag == 1);
                 if (userVerify(post_["username"], post_["password"], is_login)) {
@@ -253,8 +254,9 @@ bool HttpRequest::userVerify(const std::string &name, const std::string &pwd, bo
         std::string password(row[1]);
         // 登录请求
         if (is_login) {
-            if (pwd == password) {flag = true;}
-            else {
+            if (pwd == password) {
+                flag = true;
+            } else {
                 flag = false;
                 LOG_DEBUG("pwd error!");
             }
@@ -279,6 +281,7 @@ bool HttpRequest::userVerify(const std::string &name, const std::string &pwd, bo
     LOG_DEBUG("user verify success!");
     return flag;
 }
+
 // 十六进制转十进制
 int HttpRequest::hexToDec(char ch) {
     if (isdigit(ch)) {
