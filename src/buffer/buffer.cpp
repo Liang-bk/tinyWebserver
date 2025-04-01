@@ -32,7 +32,7 @@ size_t Buffer::prependableBytes() const {
 }
 
 
-const char *Buffer::beginWrite() const {
+const char *Buffer::beginWriteConst() const {
     return begin() + write_pos_;
 }
 

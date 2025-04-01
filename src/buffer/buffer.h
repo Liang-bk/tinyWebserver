@@ -19,7 +19,7 @@ public:
     size_t writableBytes() const;
     size_t prependableBytes() const;
 
-    const char* beginWrite() const;
+    const char* beginWriteConst() const;
     char* beginWrite();
     const char* peek() const;
 
@@ -74,7 +74,6 @@ private:
     size_t write_pos_;
     // 为什么要使用atomic包装pos?
     // 如果是为了线程安全, 那么应该出现两个以上的线程操作同一个buffer实例的情况
-
 };
 
 

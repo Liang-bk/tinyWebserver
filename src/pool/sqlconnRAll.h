@@ -5,7 +5,7 @@
 #ifndef SQLCONNRALL_H
 #define SQLCONNRALL_H
 #include <assert.h>
-#include <mysql.h>
+#include <mysql/mysql.h>
 
 #include "sqlconnpool.h"
 /*
