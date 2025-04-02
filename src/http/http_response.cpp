@@ -3,8 +3,6 @@
 //
 
 #include "http_response.h"
-
-#include <bits/fs_path.h>
 /* 响应结构:
  * 状态行: HTTP/1.1 200 OK (版本 状态码 状态消息)
  * 响应头: Content-Type: text/html

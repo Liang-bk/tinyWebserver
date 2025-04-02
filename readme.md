@@ -233,7 +233,42 @@ private:
 
 同SQL连接池一样，由于线程的创建和销毁都需要消耗不小的系统资源，所以在一开始就创建好一定个数的线程，等到有任务来临时再移交给其中一个线程进行处理，也是一种经典的空间换时间的方法。
 
+```c++
+struct Pool {
+    std::mutex mutex;// 互斥锁, 互斥取任务队列
+    std::condition_variable condition;	// 条件变量, 唤醒和阻塞线程 
+    std::queue<std::function<void()>> tasks;	// 任务队列
+    bool is_close;	// 线程池是否已关闭
+};
+```
 
+线程池在初始化时就启动n个线程，每个线程是死循环（直到`is_close`为`true`）时退出。启动流程如下：
+
+1. 尝试获取锁，转2
+2. 尝试从任务队列取任务（函数），取出任务后释放锁，然后执行，执行后转1（锁只管任务队列的读取），任务队列为空则转3
+3. 阻塞自身，等待任务队列有任务时被唤醒
+
+外部添加任务：
+
+```c++
+template<typename T>
+void addTask(T &&task) {
+    // T &&task 如果T是左值, 传进来的就是 T &task(左值的引用)
+    //          如果T是右值, 传进来的就是 T task(普通类型)
+    std::unique_lock<std::mutex> lock(pool_->mutex);
+    // forward保证了右值不会因为传进来的是T task而改变其右值属性
+    // 比如外部调用一个addTask([](){})的形式, 传入之后就变成了 function<void()> task,
+    // 这是一个左值, forward的作用就是task原来是右值, 现在还是右值
+    // emplace 在处理右值的时候直接constructor, 其余和push相同
+    pool_->tasks.emplace(std::forward<T>(task));
+    // 来了一个任务, 唤醒一个线程处理
+    pool_->condition.notify_one();
+}
+```
+
+## HTTP
+
+bug:数据边界不清晰——http_conn在process时未考虑不完整的http包情况
 
 
 

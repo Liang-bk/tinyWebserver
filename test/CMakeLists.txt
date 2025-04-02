@@ -7,4 +7,4 @@ add_executable(test
 )
 find_package(Threads REQUIRED)
 target_link_libraries(test Threads::Threads)
-target_link_libraries(test logger pool buffer http)
+target_link_libraries(test logger pool buffer http timer)
