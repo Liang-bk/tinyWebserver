@@ -270,5 +270,33 @@ void addTask(T &&task) {
 
 bug:数据边界不清晰——http_conn在process时未考虑不完整的http包情况
 
+## Epoll
 
+### event宏定义
 
+1. EPOLLIN: 表示对应的文件描述符可以读（包括对端套接字正常关闭）。
+
+2. EPOLLOUT: 表示对应的文件描述符可以写。
+
+3. EPOLLRDHUP: 表示对端套接字关闭连接，或者半关闭连接。
+
+4. EPOLLPRI: 表示对应的文件描述符有紧急数据可读（带外数据）。
+
+5. EPOLLERR: 表示对应的文件描述符发生错误。
+
+6. EPOLLHUP: 表示对应的文件描述符被挂起。
+
+7. EPOLLET: 表示将文件描述符设置为边缘触发（Edge Triggered）模式。
+
+8. EPOLLONESHOT: 表示在处理完一个事件后，自动将文件描述符从 epoll 实例中移除。
+
+9. EPOLLEXCLUSIVE: 表示独占模式，通常用于多线程环境下避免惊群效应。
+
+## webserver
+
+流程：
+
+1. 初始化，包括事件模式（ET）和Socket，线程池，数据库连接池，日志，连接数、资源路径等初始化
+   - 事件初始化：Server掌管两类事件，server_fd的事件和连进来的client_fd的事件，对于server_fd，主要就是开启ET模式，对于client_fd，包括EPOLLRDHUP（对端半关闭连接），EPOLLONESHOT（事件通知后就将描述符从epoll空间移除），EPOLLET（ET模式）
+   - Socket：socket， bind，listen等服务端应有的流程，setsockopt设置端口复用跳过重启的TIME_WAIT时间，向epoll空间注册server_fd的监听事件，并将fd设置为非阻塞式（read/write/accept等IO函数在读不到数据时会立即返回并设置一个错误）
+   - 线程池由构造函数直接启动固定数量的线程，数据库连接池和日志由单例模式外部调用初始化函数

@@ -29,7 +29,7 @@ public:
     HeapTimer() {
         timer_nodes_.reserve(64);
         // 占住0号位, 方便后续操作
-        timer_nodes_[0] = {};
+        timer_nodes_.push_back({});
     }
 
     ~HeapTimer() { clear(); }

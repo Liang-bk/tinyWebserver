@@ -74,7 +74,7 @@ void HttpResponse::init(const std::string &src_dir, std::string &path, bool is_k
 }
 
 void HttpResponse::makeResponse(Buffer &buffer) {
-    // index.html -> /home/user/code/resources/index.html
+    // index.html -> /home/user/webserver/resources/index.html
     // dir + path: 拼接后的资源路径
     // 获取资源路径失败或者资源路径是一个目录, 返回404
     if (stat((src_dir_ + path_).data(), &mm_file_stat_) < 0 || S_ISDIR(mm_file_stat_.st_mode)) {

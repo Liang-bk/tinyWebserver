@@ -65,10 +65,10 @@ bool HttpRequest::parse(Buffer &buffer) {
                 break;
             case BODY:
                 // body不带CRLF, 不清楚会不会有bug, 暂时先这么写吧
-                if (line_end != buffer.beginWriteConst() && line.empty()) {
-                    state_ = FINISH;
-                    break;
-                }
+                // if (line_end != buffer.beginWriteConst() && line.empty()) {
+                //     state_ = FINISH;
+                //     break;
+                // }
                 parseBody(line);
                 break;
             default:
@@ -131,7 +131,7 @@ void HttpRequest::parseHeaders(const std::string &line) {
     // ([^:]+) 匹配非:的字符一个或多个
     // : ? 匹配:和0-1个' '
     // (.*) 匹配任意数量字符
-    std::regex pattern("^([^:]+): ?(.*)$");
+    std::regex pattern("^([^:]*): ?(.*)$");
     std::smatch match_results;
     if (std::regex_match(line, match_results, pattern)) {
         headers_[match_results[1].str()] = match_results[2].str();
@@ -290,7 +290,7 @@ int HttpRequest::hexToDec(char ch) {
         ch = tolower(ch);
         return ch - 'a' + 10;
     } else {
-        return -1;
+        return ch;
     }
 }
 

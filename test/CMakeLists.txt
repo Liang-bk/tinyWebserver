@@ -5,6 +5,11 @@ include_directories(${CMAKE_SOURCE_DIR})
 add_executable(test
         test.cpp
 )
+add_executable(timer_test
+        timer_test.cpp
+)
 find_package(Threads REQUIRED)
 target_link_libraries(test Threads::Threads)
-target_link_libraries(test logger pool buffer http timer)
+target_link_libraries(test logger pool buffer http timer server)
+target_link_libraries(timer_test Threads::Threads)
+target_link_libraries(timer_test logger pool buffer http timer server)

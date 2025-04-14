@@ -6,3 +6,6 @@ add_library(pool
         sqlconnRAll.h
         sqlconnpool.cpp
 )
+
+include_directories(/usr/include/mysql)
+target_link_libraries(pool mysqlclient)

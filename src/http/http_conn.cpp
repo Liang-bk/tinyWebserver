@@ -85,7 +85,7 @@ ssize_t HttpConnection::write(int *save_errno) {
         // 两块都写完毕
         if (iov_[0].iov_len + iov_[1].iov_len == 0) {
             break;
-        } else if (len > iov_[0].iov_len) {
+        } else if (static_cast<size_t>(len) > iov_[0].iov_len) {
             // 写完了第一块, 开始写第二块
             // 1. 第一次写就写完了iov_[0]
             // 2. 后续写才写完

@@ -5,6 +5,7 @@
 #include <fcntl.h>
 
 #include "src/logger/logger.h"
+#include "src/server/webserver.h"
 // TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 void bufferTest() {
@@ -35,13 +36,11 @@ void bufferTest() {
 int main() {
     // TIP Press <shortcut actionId="RenameElement"/> when your caret is at the
     // <b>lang</b> variable name to see how CLion can help you rename it.
-    Logger* logger = Logger::getInstance();
-    logger->initLogger(3);
-
-    LOG_DEBUG("1");
-    LOG_INFO("2");
-    LOG_WARN("3");
-    LOG_ERROR("4");
+    WebServer server(
+        1316, 3, 60000, false,
+        3306, "root", "root123456", "webserver",
+        12, 6, true, 1, 1024);
+    server.start();
     return 0;
 }
 
