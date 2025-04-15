@@ -38,7 +38,7 @@ int main() {
     // <b>lang</b> variable name to see how CLion can help you rename it.
     WebServer server(
         1316, 3, 60000, false,
-        3306, "root", "root123456", "webserver",
+        3306, "root", "", "webserver",
         12, 6, true, 1, 1024);
     server.start();
     return 0;

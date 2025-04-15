@@ -93,8 +93,8 @@ void HttpRequest::parsePath() {
     } else {
         // 其他页面
         auto pathExist = [this]() -> bool {
-            for (auto page: DEFAULT_HTML) {
-                if (path_ == page) {
+            for (auto page: HttpRequest::DEFAULT_HTML) {
+                if (this->path_ == page) {
                     return true;
                 }
             }
@@ -102,9 +102,11 @@ void HttpRequest::parsePath() {
         };
         if (pathExist()) {
             path_ += ".html";
-        } else {
-            path_ = "/index.html";
         }
+        // 下面这一段不能有
+        // else {
+        //     path_ = "/index.html";
+        // }
     }
 }
 
@@ -222,8 +224,8 @@ bool HttpRequest::userVerify(const std::string &name, const std::string &pwd, bo
     LOG_INFO("Verify name:%s, pwd:%s", name.c_str(), pwd.c_str());
     MYSQL *sql = nullptr;
     // SQLConnPool在其他地方初始化
-    SQLConnRAll sql_conn_rall(&sql, SQLConnPool::getInstance());
-    assert(sql);
+    SQLConnRAll(&sql, SQLConnPool::getInstance());
+    assert(sql != nullptr);
 
     bool flag = false;
     unsigned int j = 0;

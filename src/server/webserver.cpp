@@ -31,7 +31,8 @@ WebServer::WebServer(int port, int trigger_mode, int timeout_ms, bool opt_linger
 
     if (open_log) {
         // 初始化日志信息
-        Logger::getInstance()->initLogger(log_level, "./log", ".log", log_que_size);
+        auto log = Logger::getInstance();
+        log->initLogger(log_level, "./log", ".log", log_que_size);
         if (is_closed_) {
             LOG_ERROR("=========== Server init error! ===========");
         } else {
@@ -197,12 +198,15 @@ void WebServer::sendError(int clnt_fd, const char *info) {
 }
 
 void WebServer::closeConnection(HttpConnection *client) {
+    std::unique_lock<std::mutex> lock(mutex_);
     assert(client != nullptr);
     LOG_INFO("Client[%d] quit!", client->getFd());
     // 取消监听对应客户端描述符
+    if (clients_.count(client->getFd())) {
+        clients_.erase(client->getFd());
+    }
     epoller_->delFd(client->getFd());
     client->close();
-
 }
 
 /// 延长客户端的超时时间, 根据timeout_ms_

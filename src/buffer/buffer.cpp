@@ -102,7 +102,7 @@ ssize_t Buffer::readFd(int fd, int *err_flag) {
     vec[1].iov_base = extrabuf;
     vec[1].iov_len = sizeof(extrabuf);
 
-    const int iovcnt = (writable < sizeof(extrabuf)) ? 2 : 1;
+    const int iovcnt = 2;
     ssize_t len = readv(fd, vec, iovcnt);
     if (len < 0) {
         // read 系统调用错误

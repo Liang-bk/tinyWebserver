@@ -50,6 +50,7 @@ private:
     uint32_t listen_event_; // 服务器的监听事件
     uint32_t conn_event_;   // 接收后的连接事件
 
+    std::mutex mutex_;  // closeConnection可能会被多个线程调用, 会操作clients_变量
     std::unique_ptr<HeapTimer> timer_;      // 堆计时器
     std::unique_ptr<Threadpool> threadpool_;// 线程池
     std::unique_ptr<Epoller> epoller_;      // epoll封装

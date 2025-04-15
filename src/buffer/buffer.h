@@ -4,6 +4,7 @@
 
 #ifndef BUFFER_H
 #define BUFFER_H
+#include <atomic>
 #include <string>
 #include <vector>
 #include <cassert>
@@ -70,8 +71,8 @@ private:
         write_pos_ += len;
     }
     std::vector<char> buffer_;
-    size_t read_pos_;
-    size_t write_pos_;
+    std::atomic<size_t> read_pos_;
+    std::atomic<size_t> write_pos_;
     // 为什么要使用atomic包装pos?
     // 如果是为了线程安全, 那么应该出现两个以上的线程操作同一个buffer实例的情况
 };

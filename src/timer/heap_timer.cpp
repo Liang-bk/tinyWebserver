@@ -92,8 +92,10 @@ void HeapTimer::deleteNode(size_t i) {
     swapNode(i, last);
     fd_to_index_.erase(timer_nodes_[last].fd);
     timer_nodes_.pop_back();
-    // i与last结点交换位置了, 现在应该下降i
-    shiftDown(i);
+    // i与last结点交换位置了, 现在应该下降i, 前提是删掉这个节点之后堆还有数据
+    if (size() > 0) {
+        shiftDown(i);
+    }
 }
 
 void HeapTimer::shiftUp(size_t i) {

@@ -20,7 +20,7 @@ Logger::Logger() {
 }
 
 Logger::~Logger() {
-    if (is_async_) {
+    if (write_thread_ && write_thread_->joinable()) {
         while (!block_queue_->empty()) {
             block_queue_->flush();
         }
@@ -102,7 +102,7 @@ void Logger::initLogger(int level, const char *path, const char *suffix, int max
     struct tm *tm = localtime(&timer);
     char filename[LOG_NAME_LEN] = {};
     // path_ + year(4位) + month(2位) + day(2位) + .log
-    snprintf(filename, LOG_NAME_LEN - 1, "%s%04d_%02d_%02d%s",
+    snprintf(filename, LOG_NAME_LEN - 1, "%s/%04d_%02d_%02d%s",
         path_, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, suffix_);
     today_ = tm->tm_mday;
 

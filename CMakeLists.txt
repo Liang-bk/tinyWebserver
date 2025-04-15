@@ -3,8 +3,8 @@ project(webserver)
 
 set(CMAKE_CXX_STANDARD 20)
 
-#set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR})
-#aux_source_directory(./                cur_src)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR})
+aux_source_directory(./                cur_src)
 include_directories(${CMAKE_SOURCE_DIR}/src)
 add_subdirectory(src)
 add_subdirectory(test)
@@ -19,7 +19,7 @@ include_directories(/usr/include/mysql)
 #add_subdirectory(test)
 #add_subdirectory(src/http)
 
-add_executable(${PROJECT_NAME}
+add_executable(${PROJECT_NAME} ${cur_src}
         main.cpp
 )
 find_package(Threads REQUIRED)

@@ -4,7 +4,7 @@
 #include <src/logger/logger.h>
 #include <src/pool/threadpool.h>
 #include <features.h>
-#include <src/server/webserver.h>
+#include <src/pool/sqlconnRAll.h>
 #if __GLIBC__ == 2 && __GLIBC_MINOR__ < 30
 #include <sys/syscall.h>
 #define gettid() syscall(SYS_gettid)
@@ -51,10 +51,11 @@ void testThreadPool() {
 int main() {
     //testLogger();
     // testThreadPool();
-    WebServer server(
-        1316, 3, 60000, false,
-        3306, "root", "root123456", "webserver",
-        12, 6, true, 1, 1024);
-    server.start();
+    MYSQL *sql = nullptr;
+    auto sqlpool = SQLConnPool::getInstance();
+    sqlpool->initConnPool("localhost", 3306,
+        "root", "", "webserver", 12);
+    SQLConnRAll(&sql, SQLConnPool::getInstance());
+    assert(sql != nullptr);
     return 0;
 }
