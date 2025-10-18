@@ -41,17 +41,21 @@ void append(const Buffer& buff);
 ssize_t readFd(int fd, int *err_flag);
 ```
 
-## Logger (待完善)
+## Logger 
 
 日志：调试，错误定位，数据分析...
 
-要求：不占用主线程的时间去处理日志消息(异步输出)
+要求：不占用主线程（在项目中是EventLoop对应线程）的时间去处理日志消息(异步输出)
 
-如何做？主线程(或其他线程)将所写的日志内容先存到阻塞队列中，额外添加一个写线程从阻塞队列中取出内容，写入实际的日志文件
+如何做？主线程(或其他线程)统一将日志内容存到阻塞队列中，日志类启动写线程从阻塞队列中取出内容，写入实际的日志文件
 
 ### 单例模式
 
 保证一个类只有一个实例，并提供一个全局访问点，该实例被所有程序模块共享(为了不让在外部创建实例，需要将类的构造函数和析构函数放入private中以防止外界访问)
+
+**懒汉：**静态局部变量（`Logger`实例只有在调用`getInstance`时才被初始化）
+
+**饿汉：**类静态变量（类内定义，类外初始化，因此程序一运行就初始化）
 
 ```c++
 // 全局访问点, 懒汉模式(只有在getInstance被调用时才创建Logger对象)
@@ -80,14 +84,12 @@ static Logger *Logger::getInstance() {
             logger->flush(); \
         } \
     } while(0);
-// __VA_ARGS__就是将...复制到自己的位置, 前面加上的##作用为: 当可变参数的个数为0时, 其可以把前面多余的 , 删去, 防止编译错误(宏是单纯的文本替换)
+// __VA_ARGS__就是将...复制到自己的位置, 前面加上的##作用为: 当可变参数的个数为0时, 其可以把前面多余的"," 删去, 防止编译错误(宏是单纯的文本替换)
 #define LOG_DEBUG(format, ...) do {LOG_BASE(0, format, ##__VA_ARGS__); } while(0);
 #define LOG_INFO(format, ...) do {LOG_BASE(1, format, ##__VA_ARGS__); } while(0);
 #define LOG_WARN(format, ...) do {LOG_BASE(2, format, ##__VA_ARGS__); } while(0);
 #define LOG_ERROR(format, ...) do {LOG_BASE(3, format, ##__VA_ARGS__); } while(0);
 ```
-
-
 
 ### BlockQueue
 
@@ -125,13 +127,16 @@ producer_cond_.notify_one();
 return true;
 ```
 
-日志行数没有写满：问题出在异步这里，前面的writeLog只往队列里塞消息，如果往队列里塞的消息到了MAX条就会新创建一个文件改变文件指针，但是写线程没有反应过来，于是会往新文件里写入原本应该在老文件里的消息
+**日志行数没有写满：**问题出在异步这里，前面的writeLog只往队列里塞消息，如果往队列里塞的消息到了MAX条就会新创建一个文件改变文件指针，但是写线程没有反应过来，于是会往新文件里写入原本应该在老文件里的消息
 
 同样的，由于把旧文件的内容写入了新文件，可能导致新文件行数超过规定的最大行数
 
 solution1：将关闭文件的权限交给异步写线程，在队列里附上文件指针指明这是哪一个文件的内容， 当队列中上一个和下一个文件指针不相同时，说明更改了文件，此时关闭上一个文件。
 
 同时为了防止日期导致文件名更改产生的消息归属bug，将两个临界区合为一个，可能会降低效率，但线程安全
+
+**使用ctrl c停止服务时，部分日志消失：**这是由于阻塞队列的实现有问题，在阻塞队列关闭后，对应阻塞的生产者所带的日志一定消失（根本没有进阻塞队列），但阻塞队列中未取出的日志不应该消失，但阻塞队列的实现（在检查到close标志时pop返回false，对应的写线程在发现不能继续取出数据的时候就会终止掉）忽略这一问题，这会导致文件等资源不能正常关闭，应该修正阻塞队列，使其能够在关闭后仍能让消费者消费掉剩余的数据
+
 ## 连接池(Pool)
 
 ### SQL配置
@@ -268,31 +273,96 @@ void addTask(T &&task) {
 
 ## HTTP
 
-bug:数据边界不清晰——http_conn在process时未考虑不完整的http包情况
+数据边界不清晰——http_conn在process时未考虑不完整的http包情况
+
+## Timer
+
+
 
 ## Epoll
 
+介绍：
+
+epoll是一个IO多路复用器（只针对网络IO），**多路复用**的意思是：复用线程来进行IO，更详细的解释是相比于传统的一个连接一个线程来处理的情况，多路复用可以做到多个连接使用一个线程来处理，其工作机理简单描述为由内核来监视多个socket对应的文件描述符，当发生事件时，将对应的描述符保存在用户传入的数组中，然后再交由用户处理这些socket上发生的事件
+
+为了复用，相关的网络IO操作就必须做到非阻塞读取和写入数据（read和write在读取/写入网络数据时如果无法进行，就要返回`EAGAIN`错误），否则如果读写的系统调用阻塞了线程，线程就无法处理其他连接的数据，也就做不到复用的效果了
+
+### 工作机制
+
+跟epoll相关的三个重要系统调用：
+
+1. `int epoll_create (int __size)`：创建一个epoll文件描述符并返回
+
+   相当于创建了一个集合，可以往集合中增加/删除/修改socket描述符
+
+2. `int epoll_ctl (int __epfd, int __op, int __fd, struct epoll_event *__event)`：将事件和需要的功能注册到epoll文件描述符上，返回结果代表注册是否成功
+
+   - __epfd：即`epoll_create`创建的epoll文件描述符
+
+   - __op：操作类型，由宏定义，比如`EPOLL_CTL_ADD`（添加描述符），`EPOLL_CTL_MOD`（修改描述符），`EPOLL_CTL_DEL`（删除描述符）
+
+   - __event：事件类型，定义如下：
+
+     ```c++
+     typedef union epoll_data {
+       void *ptr;
+       int fd;
+       uint32_t u32;
+       uint64_t u64;
+     } epoll_data_t;
+     struct epoll_event {
+       uint32_t events;	/* Epoll events */
+       epoll_data_t data;	/* User data variable */
+     } __EPOLL_PACKED;
+     ```
+
+     其中，`events`是监听的事件类型，在下节给出；
+
+     `data`是一个联合体，用户可以选择用其记录socket对应的fd，或者自定义一个结构来管理socket的fd，再用`ptr`指针指向该结构，具有强大的灵活性
+
+3. `int epoll_wait (int __epfd, struct epoll_event *__events, int __maxevents, int __timeout)`：等待监听的事件发生，其返回值代表有多少个socket上发生了事件
+
+   - __events：是一个`epoll_event`类型的数组，是epoll_wait的另一个返回值，当有事件发生时，内核会将就绪的`epoll_event`放入该数组中
+   - __maxevents：表示数组的最大长度
+   - __timeout：表示epoll_wait这个系统调用会阻塞多长时间（毫秒），若为-1则表示一直阻塞（直到有事件发生）
+
+#### 工作原理
+
+首先调用epoll_create()来创建一个红黑树结构
+
+然后通过epoll_ctl()将相关的socket描述符和要监听的事件在红黑树上进行注册/修改/删除
+
+epoll底层使用事件驱动在内核中维护一个链表来记录就绪的事件，当某个socket发生事件时，通过回调函数，由内核将该事件对应的epoll_event加入就绪事件列表中
+
+最后由用户调用epoll_wait来获取发生了事件集合（由内核将事件就绪链表复制一份给用户数组）
+
+#### 触发方式
+
+##### ET
+
+又叫边缘触发，表现在只有当事件从无变有时，才提醒，比如一个socket上发生了读事件，当epoll_wait取出该事件后，如果没有处理，那么之后epoll不会再次提醒该事件
+
+##### LT
+
+又叫水平触发，表现在只要事件没有被消费，就一直提醒，比如一个socket上发生了读事件，如果第一次epoll_wait取出该事件没有处理，下一次调用epoll_wait，内核仍然会返回该事件提醒用户处理
+
 ### event宏定义
 
+关于`epoll_event`中的uint32_t events可以设置的值（宏定义）：
+
 1. EPOLLIN: 表示对应的文件描述符可以读（包括对端套接字正常关闭）。
-
 2. EPOLLOUT: 表示对应的文件描述符可以写。
-
 3. EPOLLRDHUP: 表示对端套接字关闭连接，或者半关闭连接。
-
 4. EPOLLPRI: 表示对应的文件描述符有紧急数据可读（带外数据）。
-
 5. EPOLLERR: 表示对应的文件描述符发生错误。
-
 6. EPOLLHUP: 表示对应的文件描述符被挂起。
-
 7. EPOLLET: 表示将文件描述符设置为边缘触发（Edge Triggered）模式。
-
 8. EPOLLONESHOT: 表示在处理完一个事件后，自动将文件描述符从 epoll 实例中移除。
-
 9. EPOLLEXCLUSIVE: 表示独占模式，通常用于多线程环境下避免惊群效应。
 
 ## webserver
+
+webserver使用单Reactor多线程模式，即主线程处理所有事件（连接事件，客户端读写事件），并将事件对应的处理函数交由线程池处理
 
 流程：
 
